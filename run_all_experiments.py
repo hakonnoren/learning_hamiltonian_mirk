@@ -34,10 +34,10 @@ integrators = ['mirk2','mirk3','rk4','mirk4','mirk5','mirk6']
 exp_dict['y0'] = np.array([0.2,0.35,-0.3,0.2])
 hamiltonian_system = HamiltonianSystem(hamiltonian_henon_heiles)
 
-save_every_exp = False  #Change to "henon" to save phase and time plots for every single exp.
+save_every_exp = "henon"  #Change to "henon" to save phase and time plots for every single exp.
 save_aggregate_results = "henon"
 result_dict,ys_dict = run_experiments_seq(exp_dict,hamiltonian_system,n_trains,integrators,plot=False,save=save_every_exp)
-plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=0,n_dim=3,save=save_aggregate_results)
+plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=0,n_dim=2,save=save_aggregate_results)
 plot_convergence(result_dict,exp_dict,n_trains,save=save_aggregate_results)
 
 
@@ -49,10 +49,10 @@ fermi_pasta = get_fermi_pasta_ulam_tsingou(m = 1,omega = 2)
 
 hamiltonian_system = HamiltonianSystem(fermi_pasta)
 
-save_every_exp = False  #Change to "fput" to save phase and time plots for every single exp.
+save_every_exp = "fput"  #Change to "fput" to save phase and time plots for every single exp.
 save_aggregate_results = "fput"
 result_dict,ys_dict = run_experiments_seq(exp_dict,hamiltonian_system,n_trains,integrators,plot=False,save=save_every_exp)
-plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=1,n_dim=3,save=save_aggregate_results)
+plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=1,n_dim=2,save=save_aggregate_results)
 plot_convergence(result_dict,exp_dict,n_trains,save=save_aggregate_results)
 
 
@@ -61,8 +61,8 @@ plot_convergence(result_dict,exp_dict,n_trains,save=save_aggregate_results)
 exp_dict['y0'] = np.array([-0.1,0.5,-0.3,0.1])
 hamiltonian_system = HamiltonianSystem(hamiltonian_double_pendulum)
 
-save_every_exp = False  #Change to "dp" to save phase and time plots for every single exp.
+save_every_exp = "dp"  #Change to "dp" to save phase and time plots for every single exp.
 save_aggregate_results = "dp"
 result_dict,ys_dict = run_experiments_seq(exp_dict,hamiltonian_system,n_trains,integrators,plot=False,save=save_every_exp)
-plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=0,n_dim=0,save=save_aggregate_results)
+plot_result_time_multiple(ys_dict,exp_dict,n_trains,n_step_size=0,n_dim=2,save=save_aggregate_results)
 plot_convergence(result_dict,exp_dict,n_trains,save=save_aggregate_results)
