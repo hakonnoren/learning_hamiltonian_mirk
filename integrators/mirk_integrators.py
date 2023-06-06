@@ -15,6 +15,7 @@ class MIRK(RK):
 
         if type == 'mirk2':
             v,b,D = get_MIRK_2()
+
         elif type == 'mirk3':
             v,b,D = get_MIRK_3()
         elif type == 'mirk4':
@@ -23,9 +24,10 @@ class MIRK(RK):
             v,b,D = get_MIRK_5()
         elif type == 'mirk6':
             v,b,D = get_MIRK_6()
-
         elif type == 'rk4':
             v,b,D = get_RK4()
+
+        self.type = type
         A = D + np.outer(v,b)
         self.v = v
         self.D = D
@@ -48,25 +50,28 @@ class MIRK(RK):
     def f_hat(self,y0,y1,hamiltonian,h):
         if len(y0.shape) == 1:
             y0 = y0.unsqueeze(0)
-        if len(y1.shape) == 1:
-            y1 = y1.unsqueeze(0)
-        n = y0.shape[-1]
+        if torch.any(self.v_t):
+            if len(y1.shape) == 1:
+                y1 = y1.unsqueeze(0)
+        else:
+            y1 = torch.zeros_like(y0)
+
         K = torch.zeros((y0.shape) + tuple([self.s]),dtype=torch.float64)
     
         def f(y):
             return hamiltonian.time_derivative(y)
+
+
         for i in range(self.s):
             K[:,:,i] = f(y0 + self.v_t[i]*(y1 - y0) + h*torch.einsum('bns,s -> bn',K,self.D_t[i]))
         return K@self.b_t
 
     def f_hat_np(self,y0,y1,hamiltonian,h):
 
-        n = y0.shape[-1]
         K = np.zeros((y0.shape) + tuple([self.s]))
     
         def f(y):
             return hamiltonian.time_derivative(y)
-
 
         for i in range(self.s):
             K[:,:,i] = f(y0 + self.v[i]*(y1 - y0) + h*np.einsum('bns,s -> bn',K,self.D[i]))
@@ -77,6 +82,9 @@ class MIRK(RK):
     
     def integrator(self,y0,y1,hamiltonian,h):
         return y0 + h*self.f_hat(y0,y1,hamiltonian,h)
+
+    def noise_term(self):
+        return np.sum(self.b*(1-2*self.v))
 
 
 
@@ -90,7 +98,7 @@ class MIRK_symmetric(MIRK):
             y0 = y0.unsqueeze(0)
         if len(y1.shape) == 1:
             y1 = y1.unsqueeze(0)
-        n = y0.shape[-1]
+
         K = torch.zeros((y0.shape) + tuple([self.s]),dtype=torch.float64)
     
         def f(y):
@@ -112,9 +120,7 @@ def get_MIRK_2():
     return v,b,D
 
 
-
-def get_MIRK_3(c=None):
-    c = 1
+def get_MIRK_3(c=1):
     v1 = c
     v2 = (36*c**3 - 54*c**2 + 27*c - 4)/(9*(2*c-1)**3)
     d = -2*(3*c**2 - 3*c +1)/(9*(2*c-1)**3)
@@ -126,6 +132,7 @@ def get_MIRK_3(c=None):
     D = np.zeros((2,2),dtype=np.float64)
     D[1,0] = d
     return v,b,D
+
 
 
 def get_MIRK_4():
@@ -158,8 +165,11 @@ def get_RK4():
 
 
 
+
+
 def get_MIRK_5(c2=0,c3=3/2):
 
+    
     delta = lambda x: 10*x**2 - 8*x + 1
     psi = lambda x,y: 12*(1-x)*(y-x)*(5*x*beta - alpha)
     alpha = 10*c2*c3 - 5*(c2+c3) + 3
@@ -189,7 +199,6 @@ def get_MIRK_5(c2=0,c3=3/2):
     b3 = delta(c2)/psi(c3,c2)
     b4 = (125*beta**4)/(12*gamma)
     b1 = 1 - b2 - b3 - b4
-    
 
     v = np.array([v1,v2,v3,v4])
     b =  np.array([b1,b2,b3,b4])
@@ -198,50 +207,7 @@ def get_MIRK_5(c2=0,c3=3/2):
 
 
 
-def get_MIRK_6_old(c=1/2):
-    a = c
-
-    d = (1-a**2)
-    d5 = (4*d*(5*a**2 - 1))
-
-    d31 = d*(1+a)/8
-    d32 = -d*(1-a)/8
-    d41 = d*(1-a)/8
-    d42 = -d*(1+a)/8
-    
-    d51 = 1/8 - (a**2)/d5
-    d52 = -1/8 + (a**2)/d5
-    d53 = a/d5
-    d54  = -a/d5
-
-    b1 = (3-5*a**2)/(30*d)
-    b2 = b1
-    b3 = 1/(15*a**2*d)
-    b4 = b3
-    b5 = (10*a**2 - 2)/(15*a**2)
-
-    v3 = (1/4)*(1-a)**2*(2+a)
-    v4 = (1/4)*(1+a)**2*(2-a)
-
-    b = np.array([b1,b2,b3,b4,b5],dtype=np.float64)
-    v = np.array([0,1,v3,v4,1/2],dtype=np.float64)
-    D = np.zeros((5,5),dtype=np.float64)
-
-    D[2,0] = d31
-    D[2,1] = d32
-    D[3,0] = d41
-    D[3,1] = d42
-    D[4,0] = d51
-    D[4,1] = d52
-    D[4,2] = d53
-    D[4,3] = d54
-
-    c = np.array([0,1,(1-a)/2,(1+a)/2,1/2])
-
-    return v,b,D
-
-
-def get_MIRK_6(c=None):
+def get_MIRK_6():
     sq = np.sqrt(21)
     f1 = 1/14
 
@@ -252,7 +218,6 @@ def get_MIRK_6(c=None):
     b3 = 49/180
     b4 = 49/180
     b5 = 16/45
-
 
     b = np.array([b1,b2,b3,b4,b5],dtype=np.float64)
     v = np.array([0,1,v3,v4,1/2],dtype=np.float64)
@@ -267,7 +232,7 @@ def get_MIRK_6(c=None):
     D[4,2] = 7*sq/128
     D[4,3] = -7*sq/128
 
-
     return v,b,D
+
 
 

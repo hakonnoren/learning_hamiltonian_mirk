@@ -1,7 +1,6 @@
 from torch import nn
 import torch
 
-
 class HNN(nn.Module):
     def __init__(self,input_dim,t_dtype,hidden_dim):
         super(HNN, self).__init__()
@@ -24,24 +23,6 @@ class HNN(nn.Module):
         dH = torch.autograd.grad(H,x,create_graph=True,grad_outputs=torch.ones_like(H))[0]
         return dH
 
-    def jac(self,x):
-        d = x.shape[-1]
-        with torch.enable_grad():
-            x = x.requires_grad_(True)
-            g = self.time_derivative(x)
-            jac_n = [torch.autograd.grad(g[i], (x,), retain_graph=True)[0] for i in range(d)]
-            jac = torch.stack(jac_n,1)
-            return jac
-
-    def get_L(self,ord=2):
-        L=1
-        with torch.no_grad():
-            for par in self.parameters():
-                if len(par.shape) == 2:
-                    l = torch.linalg.norm(par.data,ord=ord)
-                    L *= l
-        return float(L)
-
     def forward(self,x):
         return self.H(x)
 
@@ -52,13 +33,62 @@ class HNN(nn.Module):
         return Jdh
 
     def H(self,x):
-        return self.seq(x)
+        return self.seq(x)/(1-self.p)
 
     def hamiltonian(self,x):
         return self.H(x)
+    
+
+class sepHNN(nn.Module):
+    def __init__(self,input_dim,t_dtype,hidden_dim):
+        super(sepHNN, self).__init__()
+        self.d = int(input_dim//2)
+        self.Hq = nn.Sequential(
+            nn.Linear(self.d, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1),
+        )
+        self.Hp = nn.Sequential(
+            nn.Linear(self.d, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, 1),
+        )
 
 
 
+    def grad_q(self,q):
+        Hq = self.Hq(q)
+        dHq = torch.autograd.grad(Hq,q,create_graph=True,grad_outputs=torch.ones_like(Hq))[0]
+        return dHq
+    
+    def grad_p(self,p):
+        Hp = self.Hp(p)
+        dHp = torch.autograd.grad(Hp,p,create_graph=True,grad_outputs=torch.ones_like(Hp))[0]
+        return dHp
+    
+    def grad(self,x):
+        q,p = torch.split(x,self.d,dim=-1)
+        dH = torch.cat([self.grad_q(q),self.grad_p(p)],axis=-1)
+        return dH
 
+    def forward(self,x):
+        q,p = torch.split(x,self.d,dim=-1)
+
+        return  self.Hq(q) + self.Hp(p)
+
+    def time_derivative(self,x):
+        q,p = torch.split(x,self.d,dim=-1)
+        JdH = torch.cat([self.grad_p(p),-self.grad_q(q)],axis=-1)
+        return JdH
+
+    def H(self,x):
+        return self.forward(x)
+
+    def hamiltonian(self,x):
+        return self.H(x)
 
 
