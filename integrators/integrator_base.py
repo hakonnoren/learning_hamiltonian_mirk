@@ -1,4 +1,8 @@
+
+from sympy.matrices import Matrix
+from sympy.parsing.latex import parse_latex
 import torch
+import numpy as np
 
 class Integrator():
     def __init__(self):
@@ -16,6 +20,7 @@ class Integrator():
             F = lambda y: self.F(y,y1,dt,hamiltonian)
             return torch.autograd.functional.jacobian(F,y2)
         else:
+
             jac = []
             for i in range(len(y1)):
                 F = lambda y: self.F(y,y1[i],dt,hamiltonian)
@@ -53,6 +58,22 @@ class Integrator():
 
         return z_n + y0
 
+    def fp_step_numpy(self,y0,dt,hamiltonian,tol = 1e-16):
+        d = y0.shape[-1]//2
+        dim = len(y0.shape)
+        z_n = np.zeros_like(y0)
+        z_n = dt*hamiltonian.time_derivative(y0)
+
+        err = np.linalg.norm(y0)
+        c = 0
+        while err > tol and c < 60:
+            z_nn = dt*self.f_hat_np(y0,z_n + y0,hamiltonian,dt)
+            err = np.linalg.norm(z_n - z_nn)
+            z_n = z_nn
+            c += 1
+
+        return z_n + y0
+
 
     def integrate_torch_fp(self,y0,dt,hamiltonian,n_steps):
         ys = torch.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
@@ -66,29 +87,17 @@ class Integrator():
                 ys[:,n_steps - i] = yn
         return ys
     
-    def integrate_torch_explicit(self,y0,dt,hamiltonian,n_steps):
-        ys = torch.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
+    def integrate_fp_numpy(self,y0,dt,hamiltonian,n_steps):
+        ys = np.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
         ys[:,0] = y0
         yn = y0
         for i in range(1,n_steps):
-            yn = self.integrator(yn,None,hamiltonian,dt)
+            yn = self.fp_step_numpy(yn,dt,hamiltonian)
             if dt > 0:
                 ys[:,i] = yn
             else:
                 ys[:,n_steps - i] = yn
         return ys
-    
-    def integrate_inverse_mirk(self,ys,dt,hamiltonian):
-        fs = torch.stack([self.f_hat(y1,y2,hamiltonian,dt) for y1,y2 in zip(ys[:,0:-1],ys[:,1:])])
-        ys_hat = torch.stack([y0 + torch.sum(fs[:,0:i],dim=1) for i,y0 in enumerate(ys.permute((1,0,-1)) )]).permute(1,0,-1)
-
-        return ys_hat
-
-
-    
-    def explicit_step(self,yn,dt,hamiltonian):
-        return self.integrator(yn,None,hamiltonian,dt)
-
 
 
     def integrate_torch(self,y0,dt,hamiltonian,n_steps):
@@ -103,17 +112,20 @@ class Integrator():
                 ys[:,n_steps - i] = yn
         return ys
 
-    def integrate(self,y0,dt,hamiltonian,n_steps,method = "newton",numpy_out = False):
-        ys = torch.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
+    def integrate(self,y0,dt,hamiltonian,n_steps,method = "newton",numpy = False):
+        if numpy:
+            ys = np.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
+        else:
+            ys = torch.zeros([y0.shape[0]] + [n_steps] + list(y0.shape[1:]) )
 
         step_func = None
-
+        if method == "fp_numpy":
+            step_func = self.fp_step_numpy
         if method == "newton":
             step_func = self.newton_step
         if method == "fp":
             step_func = self.fp_step
-        if method == "explicit":
-            step_func = self.explicit_step
+
         ys[:,0] = y0
         yn = y0
 
@@ -123,11 +135,8 @@ class Integrator():
                 ys[:,i] = yn
             else:
                 ys[:,n_steps - i] = yn
+        return ys
 
-        if not numpy_out:
-            return ys
-        else:
-            return ys.detach().numpy().T
 
 
 

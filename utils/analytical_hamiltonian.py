@@ -5,7 +5,6 @@ from sympy.utilities import lambdify
 from sympy.parsing.latex import parse_latex
 import torch
 
-#from utils.sympy_torch import SymPyModule
 
 
 class HamiltonianSystem():
@@ -58,8 +57,8 @@ class HamiltonianSystem():
 
         return hamiltonian_lambda,z,q,p
 
-    def grad(self,z):
-        return self.hamiltonian_grad_torch(z)
+
+    
 
 def get_fermi_pasta_ulam_tsingou(m = 3,omega = 10):
     i = symbols("i")
@@ -69,8 +68,18 @@ def get_fermi_pasta_ulam_tsingou(m = 3,omega = 10):
 
     H1 = Sum( hlf*(y[i]**2 + y[i+m]**2),(i,1,m)).doit()
     H2 = Sum( omega**2*hlf*(x[i+m]**2),(i,1,m)).doit()
-    H3 = hlf/2*((x[1] - x[1+m])**4 + (x[m] + x[2*m])**4 )
+    H3 = hlf/2*((x[1] - x[1+m])**4 + (x[m] - x[2*m])**4 )
     H4 = Sum( ( x[i + 1] - x[m+i+1] - x[i] - x[m + i]  )**4,(i,1,m-1)).doit()
     H = H1 + H2 + H3 + H4
     latex_H = latex(H).replace("{","").replace("}","")
     return latex_H
+
+
+
+hamiltonian_pendulum = r' \frac{1}{2}p_1^2 + (1-\cos(q_1))'
+hamiltonian_oscillator = r'\frac{p_1^2}{2} + \frac{q_1^2}{2}'
+hamiltonian_double_pendulum = r' \frac{\frac{1}{2}p_1^2 + p_2^2 - p_1p_2\cos(q_1-q_2)}{1+\sin^2(q_1-q_2)} - 2\cos(q_1) -\cos(q_2)'
+hamiltonian_henon_heiles = r' \frac{1}{2}(p_1^2 + p_2^2) + \frac{1}{2}(q_1^2 + q_2^2) + q_1^2q_2 - \frac{1}{3}q_2^3'
+
+
+
